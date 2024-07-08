@@ -1,0 +1,84 @@
+---
+- name: Ensure Docker is not installed
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Stop Docker service if running
+      ansible.builtin.service:
+        name: docker
+        state: stopped
+      ignore_errors: true
+
+    - name: Remove Docker packages if they are installed
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: absent
+        purge: yes
+
+    - name: Remove Docker directories if they exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+        recurse: yes
+      loop:
+        - /var/lib/docker
+        - /etc/docker
+      ignore_errors: true
+
+    - name: Remove Docker socket if it exists
+      ansible.builtin.file:
+        path: /var/run/docker.sock
+        state: absent
+      ignore_errors: true
+
+- name: Install specific version of Docker
+  hosts: localhost
+  become: yes
+  vars:
+    docker_version: "5:20.10.7~3-0~ubuntu-focal"
+  tasks:
+    - name: Ensure apt cache is updated
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg-agent
+          - software-properties-common
+        state: present
+
+    - name: Download Docker's official GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /tmp/docker_gpg_key
+
+    - name: Add Docker's official GPG key
+      ansible.builtin.apt_key:
+        file: /tmp/docker_gpg_key
+        state: present
+
+    - name: Add Docker's APT repository
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Install Docker
+      ansible.builtin.apt:
+        name:
+          - "docker-ce={{ docker_version }}"
+          - "docker-ce-cli={{ docker_version }}"
+          - containerd.io
+        state: present
+
+    - name: Start Docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
