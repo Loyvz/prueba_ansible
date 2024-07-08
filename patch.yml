@@ -1,0 +1,24 @@
+---
+- name: Patching Linux Servers
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages (Debian/Ubuntu)
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Update and upgrade yum packages (RedHat/CentOS)
+      yum:
+        name: '*'
+        state: latest
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Reboot the server if needed
+      reboot:
+        msg: "Reboot initiated by Ansible for patching"
+        pre_reboot_delay: 60
+        post_reboot_delay: 120
+        reboot_timeout: 300
+      when: ansible_facts['os_family'] in ["Debian", "RedHat"]
